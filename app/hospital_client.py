@@ -3,6 +3,10 @@
 This small helper centralizes calls to the downstream API so the rest of the
 application does not need to manage `httpx.AsyncClient` usage or the base
 URL/timeout configuration.
+
+Health Check
+------------
+The downstream API's health check endpoint is at `/`, not `/health`.
 """
 
 from typing import Any, Dict, Optional
@@ -21,6 +25,10 @@ class HospitalDirectoryClient:
     settings : Settings
         Application settings object used to obtain the downstream base URL
         and timeouts.
+
+    Notes
+    -----
+    The health check endpoint is available at `/` (root path), not `/health`.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -50,6 +58,27 @@ class HospitalDirectoryClient:
             timeout=self._settings.downstream_timeout_seconds,
         ) as client:
             response = await client.post("/hospitals/", json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    async def health_check(self) -> Dict[str, Any]:
+        """Check the health status of the downstream API.
+
+        Returns
+        -------
+        dict
+            The parsed JSON response from the health endpoint.
+
+        Raises
+        ------
+        httpx.HTTPStatusError
+            If the downstream API returns a non-2xx response.
+        """
+        async with httpx.AsyncClient(
+            base_url=str(self._settings.hospital_directory_api_base_url),
+            timeout=self._settings.downstream_timeout_seconds,
+        ) as client:
+            response = await client.get("/")
         response.raise_for_status()
         return response.json()
 
