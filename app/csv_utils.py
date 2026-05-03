@@ -55,7 +55,11 @@ def parse_hospital_csv(csv_text: str, max_rows: int) -> List[HospitalCsvRow]:
         or exceeds the configured row limit.
     """
     reader = csv.DictReader(StringIO(csv_text))
-    fieldnames = [field.strip().lower() for field in (reader.fieldnames or [])]
+    raw_fieldnames = reader.fieldnames or []
+    fieldnames = [field.strip().lower() for field in raw_fieldnames]
+
+    # Create a mapping from original case to lowercase for dict access
+    field_mapping = {field.strip().lower(): field.strip() for field in raw_fieldnames}
 
     if not fieldnames:
         raise CsvValidationError("CSV file is missing a header row")
@@ -72,9 +76,15 @@ def parse_hospital_csv(csv_text: str, max_rows: int) -> List[HospitalCsvRow]:
         if not raw_row:
             continue
 
-        name = (raw_row.get("name") or "").strip()
-        address = (raw_row.get("address") or "").strip()
-        phone = (raw_row.get("phone") or "").strip() or None
+        # Access using original case from field_mapping
+        name = (raw_row.get(field_mapping.get("name", "name")) or "").strip()
+        address = (raw_row.get(field_mapping.get("address", "address")) or "").strip()
+        phone_key = field_mapping.get("phone", "phone")
+        phone = (
+            (raw_row.get(phone_key) or "").strip() or None
+            if phone_key in raw_row
+            else None
+        )
 
         if not name or not address:
             raise CsvValidationError(

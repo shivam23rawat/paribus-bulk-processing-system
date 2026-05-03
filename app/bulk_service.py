@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional
 
+import httpx
+
 from .csv_utils import HospitalCsvRow
 
 
@@ -253,9 +255,21 @@ class BulkProcessingService:
 
             try:
                 created = await hospital_client.create_hospital(payload)
+            except (
+                httpx.HTTPStatusError
+            ) as exc:  # pragma: no cover - downstream failure path
+                hospital.status = "failed"
+                error_detail = f"HTTP {exc.response.status_code}"
+                try:
+                    error_detail += f": {exc.response.text}"
+                except Exception:
+                    pass
+                hospital.error = error_detail
+                batch.updated_at = _utc_now()
+                continue
             except Exception as exc:  # pragma: no cover - downstream failure path
                 hospital.status = "failed"
-                hospital.error = str(exc)
+                hospital.error = f"{type(exc).__name__}: {str(exc)}"
                 batch.updated_at = _utc_now()
                 continue
 
@@ -269,12 +283,15 @@ class BulkProcessingService:
             batch.failed_hospitals == 0
             and batch.processed_hospitals == batch.total_hospitals
         ):
-            await hospital_client.activate_batch(batch.batch_id)
-            batch.batch_activated = True
-            for hospital in batch.hospitals:
-                if hospital.status == "created":
-                    hospital.status = "created_and_activated"
-            batch.status = "completed"
+            try:
+                await hospital_client.activate_batch(batch.batch_id)
+                batch.batch_activated = True
+                for hospital in batch.hospitals:
+                    if hospital.status == "created":
+                        hospital.status = "created_and_activated"
+                batch.status = "completed"
+            except Exception:  # pragma: no cover - activation failure
+                batch.status = "completed_but_not_activated"
         elif batch.failed_hospitals > 0 and batch.processed_hospitals > 0:
             batch.status = "partial_failed"
         else:
