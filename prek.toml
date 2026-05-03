@@ -1,0 +1,41 @@
+# Prek configuration for pre-commit-style hooks (fast builtin + remote hooks)
+
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "fix-byte-order-marker" },
+  { id = "check-toml" },
+  { id = "check-yaml" },
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.15.12"
+hooks = [ { id = "ruff", args = ["--fix"] } ]
+
+[[repos]]
+repo = "https://github.com/psf/black"
+rev = "25.12.0"
+hooks = [ { id = "black" } ]
+
+[[repos]]
+repo = "https://github.com/commitizen-tools/commitizen"
+rev = "v4.15.0"
+hooks = [
+  { id = "commitizen", stages = ["commit-msg"] },
+  { id = "commitizen-branch", stages = ["pre-push"] },
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+  {
+    id = "hadolint",
+    name = "hadolint",
+    entry = "docker run --rm -v c:/Users/shiva/Desktop/Code/Repos/paribus-bulk-processing-system:/work -w /work hadolint/hadolint hadolint",
+    language = "system",
+    files = "^Dockerfile$",
+  },
+]

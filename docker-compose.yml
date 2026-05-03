@@ -1,0 +1,10 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      HOSPITAL_DIRECTORY_API_BASE_URL: https://hospital-directory.onrender.com
+      MAX_CSV_HOSPITALS: "20"
