@@ -10,7 +10,7 @@ Bonus endpoints are included for CSV validation, batch progress polling, batch d
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.8+
 - `uv`
 
 ## Deployment

@@ -7,7 +7,7 @@ name = "paribus-bulk-processing-system"
 version = "0.1.0"
 description = "Bulk processing system for hospital CSV uploads"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 dependencies = [
   "fastapi>=0.110",
   "httpx>=0.27",
@@ -20,11 +20,11 @@ asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py38"
 
 [tool.black]
 line-length = 88
-target-version = ["py310"]
+target-version = ["py38"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
@@ -34,9 +34,9 @@ packages = ["app"]
 
 [dependency-groups]
 dev = [
-    "black>=26.3.1",
-    "commitizen>=4.15.0",
-    "pre-commit>=4.6.0",
+  "black>=24.8.0",
+  "commitizen>=3.31.0",
+    "pre-commit>=3.5.0",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.15.12",
