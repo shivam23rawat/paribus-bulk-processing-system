@@ -25,7 +25,6 @@ repo = "https://github.com/commitizen-tools/commitizen"
 rev = "v4.15.0"
 hooks = [
   { id = "commitizen", stages = ["commit-msg"] },
-  { id = "commitizen-branch", stages = ["pre-push"] },
 ]
 
 [[repos]]
