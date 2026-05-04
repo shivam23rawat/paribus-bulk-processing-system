@@ -11,6 +11,13 @@ hooks = [
 ]
 
 [[repos]]
+repo = "https://github.com/astral-sh/uv-pre-commit"
+rev = "0.11.8"
+hooks = [
+  { id = "uv-lock" },
+]
+
+[[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
 rev = "v0.15.12"
 hooks = [ { id = "ruff", args = ["--fix"] } ]
@@ -28,13 +35,8 @@ hooks = [
 ]
 
 [[repos]]
-repo = "local"
+repo = "https://github.com/hadolint/hadolint"
+rev = "v2.14.0"
 hooks = [
-  {
-    id = "hadolint",
-    name = "hadolint",
-    entry = "docker run --rm -v c:/Users/shiva/Desktop/Code/Repos/paribus-bulk-processing-system:/work -w /work hadolint/hadolint hadolint",
-    language = "system",
-    files = "^Dockerfile$",
-  },
+  { id = "hadolint-docker" },
 ]
