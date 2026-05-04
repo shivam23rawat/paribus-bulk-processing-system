@@ -119,7 +119,12 @@ def _batch_to_detail_response(
     )
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["Health"],
+    summary="Health check",
+    description="Return a simple readiness response for uptime checks.",
+)
 async def health() -> dict:
     """Return a simple readiness response for uptime checks."""
 
