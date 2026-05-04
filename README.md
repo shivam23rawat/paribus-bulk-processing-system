@@ -15,6 +15,8 @@ Bonus endpoints are included for CSV validation, batch progress polling, batch d
 
 ## Deployment
 
+The app is deployed at https://paribus-bulk-processing-system.onrender.com/.
+
 Render can use the provided [render.yaml](render.yaml) configuration. Set `HOSPITAL_DIRECTORY_API_BASE_URL` if you want to point the bulk processor at a different Hospital Directory deployment.
 
 The project also includes [Dockerfile](Dockerfile) and [docker-compose.yml](docker-compose.yml) for local container runs.
