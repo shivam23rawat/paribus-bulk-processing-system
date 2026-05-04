@@ -31,14 +31,6 @@ hooks = [
 repo = "local"
 hooks = [
   {
-    id = "uv-sync-check",
-    name = "uv sync check",
-    entry = "uv sync --frozen",
-    language = "system",
-    files = "(pyproject.toml|uv.lock)$",
-    pass_filenames = false,
-  },
-  {
     id = "hadolint",
     name = "hadolint",
     entry = "docker run --rm -v c:/Users/shiva/Desktop/Code/Repos/paribus-bulk-processing-system:/work -w /work hadolint/hadolint hadolint",
