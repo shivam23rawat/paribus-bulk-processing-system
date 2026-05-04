@@ -27,7 +27,27 @@ from .schemas import (
 )
 from .settings import Settings, get_settings
 
-app = FastAPI(title="Hospital Bulk Processing System")
+openapi_tags = [
+    {
+        "name": "Health",
+        "description": "Service health and readiness endpoints.",
+    },
+    {
+        "name": "Bulk Processing",
+        "description": "CSV validation, batch creation, progress polling, and resume operations.",
+    },
+]
+
+app = FastAPI(
+    title="Hospital Bulk Processing System",
+    description=(
+        "Bulk CSV processing API for the Hospital Directory service. "
+        "Use the bulk endpoints to validate CSV files, create hospitals, "
+        "poll batch progress, inspect batch details, and retry failed rows."
+    ),
+    version="0.1.0",
+    openapi_tags=openapi_tags,
+)
 app.state.bulk_service = BulkProcessingService()
 
 
@@ -101,15 +121,66 @@ def _batch_to_detail_response(
 
 @app.get("/health")
 async def health() -> dict:
-    """Simple health check endpoint."""
+    """Return a simple readiness response for uptime checks."""
+
     return {"status": "ok"}
 
 
-@app.post("/hospitals/bulk/validate", response_model=BulkCsvValidationResponse)
+@app.post(
+    "/hospitals/bulk/validate",
+    response_model=BulkCsvValidationResponse,
+    tags=["Bulk Processing"],
+    summary="Validate a hospital CSV",
+    description=(
+        "Parse a CSV upload and verify that it includes the required columns "
+        "before any downstream hospitals are created."
+    ),
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "example": {
+                        "file": "name,address,phone\nGeneral Hospital,123 Main St,555-1234\nCity Clinic,45 Oak Ave,\n"
+                    }
+                }
+            }
+        }
+    },
+    responses={
+        400: {
+            "description": "Invalid CSV upload.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "missing_columns": {
+                            "summary": "Missing required columns",
+                            "value": {
+                                "valid": False,
+                                "total_hospitals": 0,
+                                "errors": [
+                                    {
+                                        "row": None,
+                                        "message": "CSV is missing required columns: address",
+                                    }
+                                ],
+                            },
+                        },
+                        "invalid_encoding": {
+                            "summary": "Non-UTF-8 CSV",
+                            "value": {"detail": "CSV must be UTF-8 encoded"},
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
 async def validate_bulk_csv(
-    file: UploadFile = File(...),
+    file: UploadFile = File(..., description="CSV file with hospital rows."),
     settings: Settings = Depends(get_settings),
 ) -> BulkCsvValidationResponse:
+    """Validate a CSV upload without creating downstream records."""
+
     if not file.filename:
         raise HTTPException(status_code=400, detail="A CSV file is required")
 
@@ -131,13 +202,62 @@ async def validate_bulk_csv(
     return BulkCsvValidationResponse(valid=True, total_hospitals=len(rows), errors=[])
 
 
-@app.post("/hospitals/bulk", response_model=BulkCreateResponse)
+@app.post(
+    "/hospitals/bulk",
+    response_model=BulkCreateResponse,
+    tags=["Bulk Processing"],
+    summary="Create and process a hospital batch",
+    description=(
+        "Upload a CSV of hospitals, create each hospital in the downstream "
+        "Directory API, and activate the batch when processing succeeds."
+    ),
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "example": {
+                        "file": "name,address,phone\nGeneral Hospital,123 Main St,555-1234\nCity Clinic,45 Oak Ave,\n"
+                    }
+                }
+            }
+        }
+    },
+    responses={
+        400: {
+            "description": "Invalid CSV upload.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "missing_columns": {
+                            "summary": "Missing required columns",
+                            "value": {
+                                "detail": "CSV is missing required columns: address, name"
+                            },
+                        },
+                        "too_many_rows": {
+                            "summary": "Exceeded row limit",
+                            "value": {
+                                "detail": "CSV file exceeds the maximum of 20 hospitals"
+                            },
+                        },
+                        "invalid_encoding": {
+                            "summary": "Non-UTF-8 CSV",
+                            "value": {"detail": "CSV must be UTF-8 encoded"},
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
 async def bulk_create_hospitals(
-    file: UploadFile = File(...),
+    file: UploadFile = File(..., description="CSV file with hospital rows."),
     settings: Settings = Depends(get_settings),
     hospital_client: HospitalDirectoryClient = Depends(get_hospital_client),
     bulk_service: BulkProcessingService = Depends(get_bulk_service),
 ) -> BulkCreateResponse:
+    """Create hospitals from a CSV file and return the completed batch."""
+
     started_at = time.perf_counter()
     batch_id = str(uuid.uuid4())
 
@@ -160,10 +280,27 @@ async def bulk_create_hospitals(
     return _batch_to_response(batch, time.perf_counter() - started_at)
 
 
-@app.get("/hospitals/bulk/{batch_id}/progress", response_model=BulkBatchProgress)
+@app.get(
+    "/hospitals/bulk/{batch_id}/progress",
+    response_model=BulkBatchProgress,
+    tags=["Bulk Processing"],
+    summary="Get batch progress",
+    description=(
+        "Return a lightweight progress summary for a submitted batch. "
+        "Clients can poll this endpoint to update UI progress bars."
+    ),
+    responses={
+        404: {
+            "description": "Batch not found.",
+            "content": {"application/json": {"example": {"detail": "Batch not found"}}},
+        }
+    },
+)
 async def get_bulk_progress(
     batch_id: str, bulk_service: BulkProcessingService = Depends(get_bulk_service)
 ) -> BulkBatchProgress:
+    """Return the current processing state for a batch."""
+
     batch = await bulk_service.get_batch(batch_id)
     if batch is None:
         raise HTTPException(status_code=404, detail="Batch not found")
@@ -171,10 +308,24 @@ async def get_bulk_progress(
     return BulkBatchProgress(**batch.to_summary())
 
 
-@app.get("/hospitals/bulk/{batch_id}", response_model=BulkBatchDetailResponse)
+@app.get(
+    "/hospitals/bulk/{batch_id}",
+    response_model=BulkBatchDetailResponse,
+    tags=["Bulk Processing"],
+    summary="Get batch details",
+    description="Return the full stored batch state, including per-row hospital results.",
+    responses={
+        404: {
+            "description": "Batch not found.",
+            "content": {"application/json": {"example": {"detail": "Batch not found"}}},
+        }
+    },
+)
 async def get_bulk_batch(
     batch_id: str, bulk_service: BulkProcessingService = Depends(get_bulk_service)
 ) -> BulkBatchDetailResponse:
+    """Return the complete stored representation of a batch."""
+
     batch = await bulk_service.get_batch(batch_id)
     if batch is None:
         raise HTTPException(status_code=404, detail="Batch not found")
@@ -182,12 +333,29 @@ async def get_bulk_batch(
     return _batch_to_detail_response(batch)
 
 
-@app.post("/hospitals/bulk/{batch_id}/resume", response_model=BulkBatchDetailResponse)
+@app.post(
+    "/hospitals/bulk/{batch_id}/resume",
+    response_model=BulkBatchDetailResponse,
+    tags=["Bulk Processing"],
+    summary="Retry failed rows in a batch",
+    description=(
+        "Retry failed hospitals for a batch and activate the batch if all rows "
+        "eventually succeed."
+    ),
+    responses={
+        404: {
+            "description": "Batch not found.",
+            "content": {"application/json": {"example": {"detail": "Batch not found"}}},
+        }
+    },
+)
 async def resume_bulk_batch(
     batch_id: str,
     hospital_client: HospitalDirectoryClient = Depends(get_hospital_client),
     bulk_service: BulkProcessingService = Depends(get_bulk_service),
 ) -> BulkBatchDetailResponse:
+    """Retry failed rows and return the updated batch state."""
+
     batch = await bulk_service.get_batch(batch_id)
     if batch is None:
         raise HTTPException(status_code=404, detail="Batch not found")
